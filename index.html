@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro JSON Editor - 智慧清理與格式化工具</title>
+    <!-- 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 載入 React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- 載入 Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+        .font-mono { font-family: 'Fira Code', monospace; }
+        /* 隱藏捲軸但保持功能 */
+        textarea::-webkit-scrollbar { width: 8px; }
+        textarea::-webkit-scrollbar-track { background: #1e293b; }
+        textarea::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-slate-900">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        
+        // 模擬 Lucide 圖示 (在單檔版中使用簡單的 SVG 或 Lucide 注入)
+        const Icon = ({ name, size = 16, className = "" }) => {
+            useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            }, [name]);
+            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+        };
+
+        function App() {
+            const [jsonInput, setJsonInput] = useState('{\n  "status": "ready",\n  "message": "請在此貼上您的 JSON 資料"\n}');
+            const [error, setError] = useState(null);
+            const [isValid, setIsValid] = useState(true);
+            const [copyStatus, setCopyStatus] = useState(false);
+            const [message, setMessage] = useState({ text: '', type: '' });
+
+            useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            }, []);
+
+            useEffect(() => {
+                if (!jsonInput.trim()) {
+                    setError(null);
+                    setIsValid(true);
+                    return;
+                }
+                try {
+                    JSON.parse(jsonInput);
+                    setError(null);
+                    setIsValid(true);
+                } catch (e) {
+                    setError(e.message);
+                    setIsValid(false);
+                }
+            }, [jsonInput]);
+
+            const showMessage = (text, type) => {
+                setMessage({ text, type });
+                setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+            };
+
+            const sanitizeText = (text) => {
+                return text
+                    .replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+                    .replace(/\t/g, '  ')
+                    .replace(/\u00A0/g, ' ')
+                    .replace(/[\x00-\x08\x0B-\x1F\x7F-\x9F]/g, '');
+            };
+
+            const cleanAndFormatJson = () => {
+                try {
+                    let processedText = sanitizeText(jsonInput);
+                    const lines = processedText.split('\n');
+                    const cleanedLines = lines.map(line => line.replace(/^\s*\d+[\s\u00A0]+/, ''));
+                    let cleanedText = cleanedLines.join('\n');
+                    
+                    const parsed = JSON.parse(cleanedText);
+                    setJsonInput(JSON.stringify(parsed, null, 2));
+                    showMessage('清理並格式化成功！', 'success');
+                } catch (e) {
+                    showMessage(`修復失敗: ${e.message}`, 'error');
+                }
+            };
+
+            const formatJson = () => {
+                try {
+                    const parsed = JSON.parse(jsonInput);
+                    setJsonInput(JSON.stringify(parsed, null, 2));
+                    showMessage('格式化完成', 'success');
+                } catch (e) { showMessage('JSON 格式錯誤', 'error'); }
+            };
+
+            const minifyJson = () => {
+                try {
+                    const parsed = JSON.parse(jsonInput);
+                    setJsonInput(JSON.stringify(parsed));
+                    showMessage('已壓縮', 'success');
+                } catch (e) { showMessage('JSON 格式錯誤', 'error'); }
+            };
+
+            const copyToClipboard = () => {
+                const el = document.createElement('textarea');
+                el.value = jsonInput;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                setCopyStatus(true);
+                showMessage('已複製到剪貼簿', 'success');
+                setTimeout(() => setCopyStatus(false), 2000);
+            };
+
+            return (
+                <div className="min-h-screen text-slate-100 p-4 md:p-8">
+                    <div className="max-w-6xl mx-auto">
+                        <header className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-600 rounded-lg shadow-lg">
+                                    <Icon name="code" size={24} className="text-white" />
+                                </div>
+                                <div>
+                                    <h1 className="text-2xl font-bold tracking-tight">Pro JSON Editor</h1>
+                                    <p className="text-slate-400 text-sm">Web Deployment Version</p>
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <button onClick={cleanAndFormatJson} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-md text-sm font-bold shadow-md transition-all">
+                                    <Icon name="eraser" /> 清理 + 格式化
+                                </button>
+                                <button onClick={formatJson} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-md text-sm transition-all">
+                                    <Icon name="sparkles" /> 美化
+                                </button>
+                                <button onClick={copyToClipboard} className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm transition-all ${copyStatus ? 'bg-indigo-400' : 'bg-slate-700 hover:bg-slate-600'}`}>
+                                    <Icon name={copyStatus ? "check" : "copy"} /> 複製
+                                </button>
+                                <button onClick={() => setJsonInput('')} className="px-4 py-2 bg-rose-900/40 hover:bg-rose-900/60 text-rose-200 rounded-md text-sm border border-rose-800">
+                                    <Icon name="trash-2" />
+                                </button>
+                            </div>
+                        </header>
+
+                        <div className="relative group">
+                            <div className={`absolute top-3 right-4 z-10 px-2 py-1 rounded text-[10px] font-bold border ${isValid ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/50' : 'bg-rose-500/10 text-rose-400 border-rose-500/50'}`}>
+                                {isValid ? 'VALID JSON' : 'INVALID FORMAT'}
+                            </div>
+                            <textarea
+                                value={jsonInput}
+                                onChange={(e) => setJsonInput(e.target.value)}
+                                spellCheck="false"
+                                className={`w-full h-[70vh] p-6 font-mono text-sm bg-slate-800 border-2 rounded-xl focus:outline-none focus:ring-4 transition-all resize-none shadow-2xl ${isValid ? 'border-slate-700 focus:border-indigo-500 focus:ring-indigo-500/10' : 'border-rose-500/50 focus:border-rose-500 focus:ring-rose-500/10'}`}
+                                placeholder="在此貼上內容..."
+                            />
+                        </div>
+
+                        {!isValid && error && (
+                            <div className="mt-4 p-4 bg-rose-900/20 border border-rose-500/30 rounded-lg text-rose-200 text-sm flex items-start gap-3">
+                                <Icon name="alert-circle" className="text-rose-500 mt-1" />
+                                <div>
+                                    <p className="font-bold text-rose-400">解析錯誤</p>
+                                    <code className="block mt-1 opacity-80">{error}</code>
+                                    <button onClick={cleanAndFormatJson} className="mt-2 text-[10px] underline hover:text-rose-300">
+                                        可能是行號或不可見字元？嘗試自動修復
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {message.text && (
+                        <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 z-50 animate-bounce ${message.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'} text-white`}>
+                            <span className="text-sm font-bold">{message.text}</span>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
